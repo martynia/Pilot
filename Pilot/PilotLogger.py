@@ -147,6 +147,7 @@ class PilotLogger(object):
     Returns:
       bool: False in case of any errors, True otherwise
     """
+
     logging.debug("In sendMessage of PilotLogger")
     if not self._isCorrectStatus(status):
       logging.error('status: ' + str(status) + ' is not correct')

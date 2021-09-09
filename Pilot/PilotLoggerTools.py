@@ -172,7 +172,7 @@ def encodeMessage(content):
   Returns:
     str: in the JSON format.
   Raises:
-    TypeError:if cannont encode json properly
+    TypeError:if cannot encode json properly
   """
   return json.dumps(content)
 
@@ -192,7 +192,7 @@ def decodeMessage(msgJSON):
 
 def isMessageFormatCorrect(content):
   """Checks if input format is correct.
-     Function checks if the input format is a dictionnary
+     Function checks if the input format is a dictionary
      in the following format:
      0) content is a dictionary,
      1) it contains only those keys of basestring types:

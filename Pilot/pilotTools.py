@@ -313,10 +313,17 @@ class ExtendedLogger(Logger):
                pilotOutput='pilot.out',
                isPilotLoggerOn=True,
                setup='DIRAC-Certification'):
-    """ c'tor
-    If flag PilotLoggerOn is not set, the logger will behave just like
-    the original Logger object, that means it will just print logs locally on the screen
     """
+    If flag PilotLoggerOn is not set, the logger will behave just like
+    the original Logger object, that means it will just print logs locally on the screen.
+
+    :param name: Logger name
+    :param debugFlag: enable debug lover of the ExtendedLogger
+    :param pilotOutput:
+    :param isPilotLoggerOn: enables extended (remote) logging
+    :param setup: Dirac setup
+    """
+
     super(ExtendedLogger, self).__init__(name, debugFlag, pilotOutput)
     if isPilotLoggerOn:
       self.pilotLogger = PilotLogger(setup=setup)
@@ -324,28 +331,30 @@ class ExtendedLogger(Logger):
       self.pilotLogger = None
     self.isPilotLoggerOn = isPilotLoggerOn
 
-  def debug(self, msg, header=True, sendPilotLog=False):
+  def debug(self, msg, header=True):
     super(ExtendedLogger, self).debug(msg, header)
-    if self.isPilotLoggerOn and sendPilotLog:
-        self.pilotLogger.sendMessage(msg, status="debug")
+    if self.isPilotLoggerOn and self.debug:  # the -d flag activates this debug flag in CommandBase via PilotParams
+        result = self.pilotLogger.sendMessage(msg, status="debug")
+        print("sendMessage Result: ", result)
 
-  def error(self, msg, header=True, sendPilotLog=False):
+  def error(self, msg, header=True):
     super(ExtendedLogger, self).error(msg, header)
-    if self.isPilotLoggerOn and sendPilotLog:
+    if self.isPilotLoggerOn:
         self.pilotLogger.sendMessage(msg, status="error")
 
-  def warn(self, msg, header=True, sendPilotLog=False):
+  def warn(self, msg, header=True):
     super(ExtendedLogger, self).warn(msg, header)
-    if self.isPilotLoggerOn and sendPilotLog:
+    if self.isPilotLoggerOn:
         self.pilotLogger.sendMessage(msg, status="warning")
 
-  def info(self, msg, header=True, sendPilotLog=False):
+  def info(self, msg, header=True):
     super(ExtendedLogger, self).info(msg, header)
-    if self.isPilotLoggerOn and sendPilotLog:
+    if self.isPilotLoggerOn:
         self.pilotLogger.sendMessage(msg, status="info")
 
   def sendMessage(self, msg, source, phase, status='info', sendPilotLog=True):
     if self.isPilotLoggerOn and sendPilotLog:
+        #FIXME print(" IS this ever called ???")
         self.pilotLogger.sendMessage(messageContent=msg,
                                      source=source,
                                      phase=phase,
@@ -357,10 +366,15 @@ class CommandBase(object):
   """
 
   def __init__(self, pilotParams, dummy=''):
-    """ c'tor
-
-        Defines the logger and the pilot parameters
     """
+    Defines the ExtendedLogger and the pilot parameters. Remote logging is activated by isPilotLoggingOn argument
+    of ExtendedLogger constructor. Debug level of the ExtendedLogger is controlled by the -d flag in pilotParams.
+
+    :param pilotParams: a dictionary of pilot parameters.
+    :type pilotParams: dict
+    :param dummy:
+    """
+
     self.pp = pilotParams
     self.log = ExtendedLogger(
         name=self.__class__.__name__,
@@ -371,12 +385,16 @@ class CommandBase(object):
     )
     # self.log = Logger( self.__class__.__name__ )
     self.debugFlag = False
+    super(ExtendedLogger, self.log).info("Remote Logger activated ? %s" % self.log.isPilotLoggerOn)
+
     for o, _ in self.pp.optList:
       if o == '-d' or o == '--debug':
         self.log.setDebug()
         self.debugFlag = True
-    self.log.debug("\n\n Initialized command %s" % self.__class__)
+        break
 
+    self.log.debug("Initialized command %s" % self.__class__.__name__)
+    self.log.debug("pilotParams option list: %s" % self.pp.optList)
     self.cfgOptionDIRACVersion = self._getCFGOptionDIRACVersion()
 
   def _getCFGOptionDIRACVersion(self):

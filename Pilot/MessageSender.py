@@ -18,10 +18,9 @@ from __future__ import division
 from __future__ import absolute_import
 
 import logging
-try:
-  import requests
-except ImportError:
-  requests = None
+import json
+import os
+
 try:
   import stomp
 except ImportError:
@@ -33,8 +32,20 @@ try:
   import Queue as queue
 except ImportError:
   import queue
-############################
 
+try:
+  from urlparse import urlunsplit
+except:
+  from urllib.parse import urlunsplit
+############################
+try:
+  from urllib2 import urlopen
+  from urllib import urlencode
+except:
+  from urllib.request import urlopen
+  from urllib.parse import urlencode
+
+import ssl
 
 def loadAndCreateObject(moduleName, className, params):
   """
@@ -141,12 +152,14 @@ def createParamChecker(requiredKeys):
 
 
 class RESTSender(MessageSender):
-  """ Message sender to a REST interface.
-      It depends on requests module.
+  """
+   Message sender to a REST interface.
+
   """
 
-  REQUIRED_KEYS = ['HostKey', 'HostCertificate',
-                   'CACertificate', 'Url', 'LocalOutputFile']
+  #REQUIRED_KEYS = ['HostKey', 'HostCertificate',
+  #                 'CACertificate', 'Url', 'LocalOutputFile']
+  REQUIRED_KEYS = ['Port', 'Host']
 
   def __init__(self, params):
     """
@@ -161,20 +174,38 @@ class RESTSender(MessageSender):
       raise ValueError("Parameters missing needed to send messages")
 
   def sendMessage(self, msg, flag):
-    url = self.params.get('Url')
-    hostKey = self.params.get('HostKey')
-    hostCertificate = self.params.get('HostCertificate')
+    # url might look like this: 'https://diractest.grid.hep.ph.ic.ac.uk:8444/WorkloadManagement/TornadoPilotLogging'
+    host = self.params.get('Host')
+    port = self.params.get('Port')
+    netloc = ':'.join((host, port))
+    scheme = self.params.get('Scheme', 'https')
+    path = self.params.get('Path', 'WorkloadManagement/TornadoPilotLogging')
+
+    #hostKey = self.params.get('HostKey')
+    #hostCertificate = self.params.get('HostCertificate')
     CACertificate = self.params.get('CACertificate')
 
     logging.debug("sending message from the REST Sender")
     try:
-      requests.post(url,  # pylint: disable=undefined-variable
-                    json=msg,
-                    cert=(hostCertificate, hostKey),
-                    verify=CACertificate)
-    except (requests.exceptions.RequestException, IOError) as e:  # pylint: disable=undefined-variable
+      # msg already encoded in json format
+      # need to pass a single argument, as a json representation of a tuple:
+      data = urlencode({'method': 'sendMessage', 'args': json.dumps((msg,))})
+      proxyLocation = os.environ.get('X509_USER_PROXY')
+      caCertPath = os.environ.get('X509_CERT_DIR')
+      context = ssl.create_default_context()
+      context.load_verify_locations(capath=caCertPath)
+      context.load_cert_chain(proxyLocation)
+      url = urlunsplit((scheme, netloc, path, '', ''))
+      #print("RESTsender, before urlopen: ", url, proxyLocation, caCertPath)
+      #print("data: ", data, " Type:", type(data))
+      res = urlopen(url, data, context=context)
+      if res:
+        print("Response: ", res.read())
+    except (IOError) as e:  # pylint: disable=undefined-variable
       logging.error(e)
+      print("Error when sending a message: ", e)
       return False
+    #print("Message sent successfully !")
     return True
 
 

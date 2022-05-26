@@ -17,6 +17,7 @@ import json
 import re
 import signal
 import subprocess
+import select
 from distutils.version import LooseVersion
 
 ############################
@@ -395,18 +396,35 @@ class CommandBase(object):
                 "%s" % cmd, shell=True, env=environDict, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=False
             )
 
-            # standard output
-            outData = _p.stdout.read()
-            # always interpret the output as ascii
-            outData = outData.decode("ascii", "replace")
-            # replace any invalid characters with "?" to avoid having unicode output
-            outData = str(outData.replace(u"\ufffd", "?").strip())
-            # write to stdout for debugging
-            sys.stdout.write(outData + "\n")
+            outData = ""
+            isRunning = True
+            while isRunning:
+                readfd, _, _ = select.select([_p.stdout, _p.stderr], [], [])
+                if not readfd:
+                    # not sure if this error is possible
+                    break
+                for stream in readfd:
+                    outChunk = stream.read(1024)
+                    if not outChunk:
+                        # file has reached EOF, program finished
+                        isRunning = False
+                        # Finish processing FDs in case there is still some
+                        # remaining data on other file handle...
+                        continue
+                    if stream == _p.stderr:
+                        sys.stderr.write(outChunk)
+                        sys.stderr.flush()
+                    else:
+                        sys.stdout.write(outChunk)
+                        sys.stdout.flush()
+                        outData += outChunk
 
-            for line in _p.stderr:
-                sys.stderr.write(str(line))
-            sys.stderr.write("\n")
+            # Ensure output ends on a newline
+            sys.stdout.write("\n")
+            sys.stdout.flush()
+            # Decode full buffer to ascii (to avoid codepoint splitting problems)
+            outData = outData.decode("ascii", "replace")
+            outData = str(outData.replace(u"\ufffd", "?").strip())
 
             # return code
             returnCode = _p.wait()

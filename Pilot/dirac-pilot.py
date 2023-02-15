@@ -43,7 +43,6 @@ except ImportError:
 ############################
 
 if __name__ == "__main__":
-
     pilotStartTime = int(time.time())
     # we would usually have some classic logger content from a wrapper, which we passed in:
     receivedContent = sys.stdin.read()

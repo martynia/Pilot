@@ -518,7 +518,6 @@ def synchronized(func):
 
 class RepeatingTimer(Timer):
     def run(self):
-        print("self.interval:", self.interval, "type: ", type(self.interval), file=sys.stderr)
         while not self.finished.wait(self.interval):
             self.function(*self.args, **self.kwargs)
 
@@ -542,8 +541,6 @@ class FixedSizeBuffer(object):
         """
 
         self._rlock = RLock()
-        print(">>>>>>>>> autoflush %s" % autoflush)
-        print(type(autoflush))
         if autoflush > 0:
             self._timer = RepeatingTimer(autoflush, self.flush)
             self._timer.start()

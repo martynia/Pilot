@@ -53,8 +53,8 @@ try:
 except NameError:
     FileNotFoundError = OSError
 
-# Timer 2.7 issue where Timer is a function
-if sys.version_info.major == 2:
+# Timer 2.7 and < 3.3 versions issue where Timer is a function
+if sys.version_info.major == 2 or sys.version_info.major == 3 and sys.version_info.minor < 3:
     from threading import _Timer as Timer  # pylint: disable=no-name-in-module
 else:
     from threading import Timer
@@ -518,6 +518,7 @@ def synchronized(func):
 
 class RepeatingTimer(Timer):
     def run(self):
+        print("self.interval:", self.interval, "type: ", type(self.interval), file=sys.stderr)
         while not self.finished.wait(self.interval):
             self.function(*self.args, **self.kwargs)
 
@@ -541,6 +542,8 @@ class FixedSizeBuffer(object):
         """
 
         self._rlock = RLock()
+        print(">>>>>>>>> autoflush %s" % autoflush)
+        print(type(autoflush))
         if autoflush > 0:
             self._timer = RepeatingTimer(autoflush, self.flush)
             self._timer.start()
@@ -1100,7 +1103,7 @@ class PilotParams(object):
             self.pilotLogging = pilotLogging.upper() == "TRUE"
         self.loggerURL = pilotOptions.get("RemoteLoggerURL")
         # logger buffer flush interval in seconds.
-        self.loggerTimerInterval = pilotOptions.get("RemoteLoggerTimerInterval", self.loggerTimerInterval)
+        self.loggerTimerInterval = int(pilotOptions.get("RemoteLoggerTimerInterval", self.loggerTimerInterval))
         pilotLogLevel = pilotOptions.get("PilotLogLevel", "INFO")
         if pilotLogLevel.lower() == "debug":
             self.debugFlag = True
